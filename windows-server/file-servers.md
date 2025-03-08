@@ -103,6 +103,118 @@
 
 ## IMPLEMENT STORAGE SPACES AND STORAGE SPACES DIRECT
 
+### DEFINE THE STORAGE SPACES ARCHITECTURE AND ITS COMPONENTS
+
+- To make more efficient use of storage many organisations have implemented storage area networks (SANs). However most SANs require advanced configurations and expensive hardware. Storage Spaces is a solution that provides a viable alternative to SAN
+
+- A storage space is a storage-virtualization capability built into Windows Server and Windows 10 and later. The Storage Spaces feature consists of two components:
+	- Storage pools. A storage pool is a collection of physical disks aggregated into a logical disk that you can manage as a single entity. The pool can contain physical disks of any type and size. A single physical disk can belong to only one storage pool.
+	- Storage Spaces. Storage Spaces are virtual disks created from free space in a storage pool. Storage Spaces provide such functionality as resiliency levels, including mirroring and parity, storage tiers, write-back caching, fixed and thin provisioning, and management controls. Virtual disks are equivalent to logical unit numbers (LUNs) on a SAN.
+
+- To create a highly available virtual disk, you need at least one physical disk that satisfies the following requirements:
+	- One physical disk is required to create a storage pool.
+	- A minimum of two physical disks are required to create a resilient mirror virtual disk.
+	- A minimum of three physical disks are required to create a virtual disk with resiliency through parity.
+	- Three-way mirroring requires at least five physical disks.
+	- Disks must be blank and unformatted. No volume can exist on the disks.
+	- You can attach disks by using various bus interfaces, including, small computer system interface (SCSI), Serial Attached SCSI (SAS), Serial ATA (SATA), NVM Express (NVMe).
+
+- Virtual disks resiliency resembles Redudant Array of Independent Disks (RAID) technologies, but Storage Spaces store the data differently than RAID. If you want to use failover clustering with storage pools you can't use SATA, USB or SCSI disks
+
+- Storage tiers allow you to optimize the use of different disk types in a storage space. For example, you could use very fast but small-capacity solid-state drives (SSDs) with slower, but large-capacity hard disks. When you use this combination of disks, Storage Spaces automatically moves data that is accessed frequently to the faster disks, and then moves data that is accessed less often to the slower disks. By default, the Storage Spaces feature moves data once a day at 01:00 AM. You can also configure where files are stored. The advantage is that if you have files that are accessed frequently, you can pin them to the faster disk. The goal of tiering is to balance capacity against performance. Windows Server recognizes only two levels of disk tiers: SSD, and non-SSD. Windows Server 2019 added support for persistent memory (PMem). You can use PMem as a cache to accelerate the active working set, or as capacity to guarantee consistent low latency on the order of microseconds
+
+- The purpose of write-back caching is to optimize writing data to the disks in a storage space. Write-back caching works with Tiered Storage Spaces. If the server that is running the storage space detects a peak in disk-writing activity, it automatically starts writing data to the faster disks. By default, write-back caching is enabled. Write-back cache has the size limit of 1GB
+
+- Fixed provisioning allocates the storage capacity up front when you create the space. Thin provisioning enables storage to be allocated readily on a just-enough and just-in-time (JIT) basis. In this case, storage capacity in the pool is organized into provisioning slabs that aren't allocated until datasets require the storage. Instead of the traditional fixed storage allocation method in which large portions of storage capacity are allocated but might remain unused, thin provisioning optimizes any available storage by reclaiming storage that is no longer needed using a process known as trim. You can create both thin and fixed provisioning virtual disks within the same storage pool. Having both in the same storage pool is convenient, especially when they're related to the same workload. For example, you can choose to use a thin provisioning space for a shared folder containing user files, and a fixed provisioning space for a database that requires high disk I/O.
+
+- You can manage Storage Spaces interactively by using File and Storage Services role in Server Manager, via command line with Windows PowerShell, or programmatically, via Windows Storage Management application programming interface (API) in Windows Management Instrumentation (WMI). After you have provisioned the virtual disks, you can make them available to the Windows operating system by creating disk drives and either mounting them onto a local file system directory or assigning to them a drive letter. You can format a storage space virtual disk with FAT32, NT File System (NTFS), or Resilient File System (ReFS)
+
+### LIST THE FUNCTIONALITIES, BENEFITS, AND USE CASES OF STORAGE SPACES
+
+- When considering whether to use Storage Spaces in each situation, you should consider their benefits. Storage Spaces allow you to:
+	- Implement and easily manage scalable, reliable, and inexpensive storage.
+	- Aggregate individual drives into storage pools, which are managed as a single entity.
+	- Use inexpensive storage with or without external storage.
+	- Use different types of storage in the same pool (for example, SATA, SAS, USB, and SCSI).
+	- Grow storage pools as required.
+	- Provision storage when required from previously created storage pools.
+	- Designate specific drives as hot spares.
+	- Automatically repair pools containing hot spares.
+	- Delegate administration by pool.
+	- Use the existing tools for backup and restore, and use Volume Shadow Copy Service (VSS) for snapshots.
+	- Manage either locally or remotely, by using Microsoft Management Console (MMC) or Windows PowerShell.
+	- Utilize Storage Spaces with Failover Clusters.
+
+- Limitations of Storage Spaces:
+	- Storage Spaces volumes aren't supported as boot or system volumes.
+	- You should add only unformatted, non-partitioned, disks to a storage pool.
+	- All drives in a pool must use the same sector size.
+	- Storage layers that abstract the physical disks aren't compatible with Storage Spaces, including:
+	- Pass-through disks in a virtual machine (VM).
+	- Storage subsystems deployed in a separate RAID layer.
+	- Fibre Channel and Internet Small Computer System Interface (iSCSI) aren't supported.
+	- Failover Clusters are limited to SAS as the storage technology.
+
+- Workload types and resiliency types
+| **Resiliency type** | Number of data copies maintained        | **Workload recommendations**                                                       |
+|---------------------|-----------------------------------------|------------------------------------------------------------------------------------|
+| Mirror              | 2 (two-way mirror) 3 (three-way mirror) | Recommended for all workloads                                                      |
+| Parity              | 2 (single parity) 3 (dual parity)       | Sequential workloads with large units of read/write, such as archival              |
+| Simple              | 1                                       | Workloads that don't need resiliency, or provide an alternate resiliency mechanism |
+
+- Thin provisioning optimizes utilization of available storage. This can be a factor contributing to datacenter consolidation, resulting in lower operating costs. The downside of using thin provisioning, when compared with fixed provisioning, is slightly decreased storage performance.
+
+### IMPLEMENT STORAGE SPACES
+
+- As part of the implementation of Storage Spaces, you need to provision an appropriate amount and type of storage. You also need to choose the optimal logical sector sizes, drive allocation algorithm, and provisioning scheme.
+
+- The assignment of the logical sector size takes place when you create a storage pool. If you use only 512 and/or 512e drives, then the pool defaults to 512e. A 512 drive uses 512-byte sectors. A 512e drive is a hard disk with 4,096-byte sectors that emulates 512-byte sectors. If the list contains at least one 4-kilobyte (KB) drive, then the pool sector size is 4 KB by default. Optionally, you can explicitly specify the sector size of a pool and enforce it for all of its spaces. Your choices include 512 or 512e for a 512e storage pool, and 512, 512e, or 4 KB for a 4-KB pool.
+
+- You can configure how a pool allocates drives. Options include:
+	- Automatic. This is the default allocation when you add any drive to a pool. Storage Spaces can automatically select available capacity on data-store drives for both storage-space creation and JIT allocation.
+	- Manual. You can specify Manual as the usage type for drives that you add to a pool. A storage space won't use a manual drive automatically unless you select it when you create that storage space. This property makes it possible for administrators to specify that only certain Storage Spaces can use particular types of drives.
+	- Hot spare. Drives that you add as hot spares to a pool aren't available when creating a storage space. Instead, their purpose is to automatically replace failed drives.
+
+- You can provision a virtual disk by using one of two provisioning schemes:
+	- Fixed provisioning. With fixed provisioning, Storage Spaces allocates all storage capacity you designate at the time that you create the storage space.
+	- Thin provisioning. With thin provisioning, Storage Spaces allocates storage on as-needed basis, as dataset grows, up to the limit you designate.
+
+### LIST THE FUNCTIONALITIES, COMPONENTS, BENEFITS, AND USE CASES OF STORAGE SPACES DIRECT
+
+- Storage Spaces Direct is the evolution of Storage Spaces, first introduced in Windows Server 2012. It leverages Storage Spaces, Failover Clustering, Cluster Shared Volumes (CSVs), Software Storage Bus, and SMB 3.x to implement virtualized, highly-available shared storage by using local disks on each of the Storage Spaces Direct cluster nodes. It's suitable for hosting highly-available workloads, including virtual machines and SQL Server databases. Storage Spaces Direct supports both direct-attached storage (DAS) and JBODs. This eliminates the need for a shared storage fabric and enables you to use a mix of SATA disks to lower costs and NVMe devices to improve performance.
+- CSV is a clustered file system that enables cluster nodes to simultaneously read from and write to the same set of NTFS or ReFS volumes. This provides a balanced load distribution and increases failover speed by eliminating the need for drive ownership changes or dismounting and remounting volumes. Software Storage Bus forms a software-defined storage fabric consisting of local drives on cluster nodes. It also dynamically binds the fastest drives to slower drives to provide server-side read/write caching that accelerates I/O operations and increases throughput.
+
+- The architecture of Storage Spaces Direct consists of the following components:
+	- Storage Spaces Direct workloads. Common workloads include VMs and SQL Server databases.
+	- CSV. CSVs consolidate multiple volumes into a single namespace that's accessible through the file system on any cluster node.
+	- ReFS or NTFS-formatted volumes. ReFS is the recommended option because it accelerates virtual hard disk (VHD/VHDX) operations, providing superior performance in comparison with NTFS. ReFS also offers resiliency benefits such as error detection and automatic correction.
+	- Storage Spaces and the underlying virtual disks. With Storage Spaces, you create virtual disks by using available storage in the storage pool. Virtual disks provide resiliency against disk and server failure because data is distributed across disks on different servers.
+	- In the context of Storage Spaces Direct, the term volume typically refers to the volume and the underlying virtual disk.
+	- Software Storage Bus. Storage Spaces Direct uses Server Message Block (SMB) for intranode communication by using Software Storage Bus. Software Storage Bus exposes the storage on each node, making it part of the Storage Spaces layer.
+	- Failover clustering. Failover clustering is the Windows Server feature that allows you to implement highly available workloads, including Storage Spaces Direct.
+	- Windows Server instances. Storage Spaces Direct cluster can include between 2 and 16 servers.
+	- SMB Networking. SMB networking includes support for SMB Direct and SMB Multichannel.
+	- Network. Storage Spaces Direct requires network connectivity between cluster nodes. You should use multiple, RDMA-capable network adapters per node.
+	- Storage pool. The storage pool uses local disks from all cluster nodes.
+	- Local disks. Each server must have locally-attached storage, such as HDD, SSD, NVMe, or PMem disks.
+
+- Windows Server offers a range of Storage Spaces Direct-related benefits, including:
+	- Deduplication and compression for ReFS volumes. Deduplication supports volumes up to 64 terabytes (TB) and will deduplicate the first 4 TB of each file.
+	- Native support for persistent memory modules in Storage Spaces Direct clusters. You can use persistent memory as cache to accelerate the active working set, or as capacity to guarantee consistent, low latency on the order of microseconds.
+	- Nested resiliency for two-node hyper-converged infrastructure. With nested resiliency, a two-node Storage Spaces Direct cluster can provide continuously accessible storage for apps and VMs even if one server node stops working and a drive fails in the other server node.
+	- USB flash drive as a witness. You can use a low-cost USB flash drive that's plugged into your router to function as a witness in two-node Storage Spaces Direct clusters.
+	- Performance history for visibility into resource utilization and performance. This built-in functionality automatically collects over 50 essential counters spanning compute, memory, network, and storage and stores them for up to one year.
+	- Scaling for up to 4 petabytes (PB) per cluster. Starting with Windows Server 2019, Storage Spaces Direct supports up to 4 PB (or 4,000 TB) of raw capacity per storage pool.
+	- Mirror-accelerated parity. With mirror-accelerated parity you can create Storage Spaces Direct volumes that are part mirror and part parity, similar to mixing RAID-1 and RAID-5/6 to combine their benefits. In Windows Server 2019, mirror-accelerated parity performance more than doubled compared to Windows Server 2016.
+	- Drive latency outlier detection. Storage Spaces Direct automatically detects anomalous changes in drive performance and labels them in Windows PowerShell and Windows Admin Center with the Abnormal Latency status.
+	- Storage-class memory support for VMs. This enables NTFS-formatted direct access volumes to be created on non-volatile dual inline memory modules (DIMMs) and exposed to Microsoft Hyper-V VMs. This enables Hyper-V VMs to take advantage of the low-latency performance benefits of storage-class memory devices.
+	- Windows Admin Center extensions. You can manage and monitor Storage Spaces Direct with purpose-built dashboards in Windows Admin Center.
+
+When planning for Storage Spaces Direct, you need to determine whether you want to separate the virtualization and storage layers. This separation determines whether you'll implement hyper-converged or disaggregated architecture.
+	- In the hyper-converged architecture, you configure a Hyper-V cluster with local storage on each Hyper-V server, and scale this solution by adding extra Hyper-V servers with extra storage. This is the optimal solution for small and medium-sized businesses.
+	- If you need to be able to scale the virtualization layer and the storage layer independently of each other, you should choose the disaggregated architecture. This approach consists of two separate clusters, with one hosting Hyper-V VMs and the other a Scale-Out File Server (SOFS) where the VM disks reside. This solution lets you scale processing power for the virtualization layer separately from storage capacity for the storage layer. This is typically optimal for large-scale deployments.
+	- Other use cases for Storage Spaces Direct include storage of Hyper-V Replica files and for backup or archival of VM files. You can also deploy Storage Spaces Direct to host Microsoft SQL Server system and user database files.
+
 ## IMPLEMENT WINDOWS SERVER DATA DEDUPLICATION
 
 ## IMPLEMENT WINDOWS SERVER ISCSI
