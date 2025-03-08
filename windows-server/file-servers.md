@@ -217,6 +217,60 @@ When planning for Storage Spaces Direct, you need to determine whether you want 
 
 ## IMPLEMENT WINDOWS SERVER DATA DEDUPLICATION
 
+### DEFINE THE ARCHITECTURE, COMPONENTS, AND FUNCTIONALITY OF DATA DEDUPLICATION
+
+- Data Deduplication is a role service of Windows Server that identifies and removes duplications within data without compromising data integrity. This achieves the goals of storing more data and using less physical disk space. To reduce disk utilization, Data Deduplication scans files, then divides those files into chunks, and retains only one copy of each chunk. After deduplication, files are no longer stored as independent streams of data. Instead, Data Deduplication replaces the files with stubs that point to data blocks that it stores in a common chunk store. The process of accessing deduplicated data is transparent to users and apps. In many cases, Data Duplication increases overall disk performance, because multiple files can share one chunk cached in memory. This way, it might be possible to retrieve data from these files by performing fewer read operations, which compensates for a small performance impact when reading deduplicated files. Data deduplication has no impact on the performance of disk writes because it applies to data that is already on the disk
+
+- The Data Deduplication role service consists of the following components:
+	- Filter driver. This component redirects read requests to the chunks that are part of the file being requested. There's one filter driver for every volume.
+	- Deduplication service. This component manages the following jobs:
+	- Deduplication and compression. These jobs process files according to the data deduplication policy for the volume. After initial optimization of a file, if the file is then modified and meets the data deduplication policy threshold for optimization, the file will be optimized again.
+	- Garbage Collection. This job processes deleted or modified data on the volume so that any data chunks no longer being referenced are cleaned up, yielding free disk space. By default, Garbage Collection runs weekly, however, you might also consider invoking it after deleting many files.
+	- Scrubbing. This job relies on such resiliency features as checksum validation and metadata consistency checking to identify and, whenever possible, automatically resolve data integrity issues.
+	- Unoptimization. This job reverses deduplication on all the optimized files on the volume. Some of the common scenarios for using this type of job include troubleshooting issues with deduplicated data or migration of data to another system that doesn't support Data Deduplication.
+
+- Data Deduplication process all the data on a selected volume, with a few exceptions, including:
+	- Files that don't meet the deduplication policy you configure.
+	- Files in folders that you explicitly exclude from the scope of deduplication.
+	- System state files.
+	- Alternate data streams.
+	- Encrypted files.
+	- Files with extended attributes.
+	- Files smaller than 32 KB.
+
+### DEFINE THE USE CASES AND INTEROPERABILITY OF DATA DEDUPLICATION
+
+| **Use case**               | **Content**                                                                                                  | **Space savings** |
+|----------------------------|--------------------------------------------------------------------------------------------------------------|-------------------|
+| User documents             | Group content publication or sharing, user home folders, and profile redirection for accessing offline files | 30 to 50 percent  |
+| Software deployment shares | Software binaries, cab files, symbols files, images, and updates                                             | 70 to 80 percent  |
+| Virtualization libraries   | virtual hard disk files (i.e., .vhd and .vhdx files) storage for provisioning to hypervisors                 | 80 to 95 percent  |
+| General file share         | a mix of all the previously identified data types                                                            | 50 to 60 percent  |
+
+- Ideal candidates for deduplication:
+	- Folder redirection servers.
+	- Virtualization depot or provisioning library.
+	- Software deployment shares.
+	- Microsoft SQL Server and Microsoft Exchange Server backup volumes.
+	- Files on Scale-out File Servers (SOFS) Cluster Shared Volumes (CSVs).
+	- Virtualized backup VHDs (for example, Microsoft System Center Data Protection Manager).
+	- Virtualized Desktop Infrastructure VDI VHDs (only personal VDIs).
+- Should be evaluated based on content:
+	- Line-of-business (LOB) servers.
+	- Static content providers.
+	- Web servers.
+	- High-performance computing (HPC).
+- Not ideal candidates for deduplication:
+	- Windows Server Update Service (WSUS).
+	- SQL Server and Exchange Server database volumes.
+
+- In most VDI deployments, special planning is required to consider boot storms. This term refers to the situation in which many users try to simultaneously sign in to their VDI, typically in the beginning of a business day. A boot storm imposes a heavy load on the VDI storage system and can result in long delays for VDI users during their initial sign-in. You can minimize the impact of boot storms by enabling deduplication. This way, chunks read from the on-disk deduplication store during startup of VMs are cached in memory. As a result, subsequent reads don't require frequent access to the chunks on disk because they're available in the cache.
+
+
+### IMPLEMENT DATA DEDUPLICATION
+
+### MANAGE AND MAINTAIN DATA DEDUPLICATION
+
 ## IMPLEMENT WINDOWS SERVER ISCSI
 
 ## IMPLEMENT WINDOWS SERVER STORAGE REPLICA
