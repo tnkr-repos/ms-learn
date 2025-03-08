@@ -59,14 +59,47 @@
 
 - Features to be installed - File Server Resource Manager, and File Server Resource Manager Remote Server Administration Tools
 - Check Firewall settings to verify if they allow Remote File Server Management incoming requests on the File Server
-- Open `Windows Administrative Tools` -> `File Server Resource Manager` -> Right click and connect to another computer
-
+- Open `Windows Administrative Tools` -> `File Server Resource Manager` -> Right click and connect to another computer -> Select the File Server name from AD -> Configure `Quota Management` and `File Screening`
 
 ### DEFINE SMB AND ITS SECURITY CONSIDERATIONS
 
+- Server Message Block (SMB) servers as the basis for Windows file sharing
+- SMB is a TCP/IP-based network file sharing protocol that allows applications on a computer to read and write to files, and to request services from server programs in a computer network. Using the SMB protocol, an application (or the user of an application) can access files or other resources at a remote server. This allows applications to read, create, and update files on the remote server
+- Benefits of SMB 3?
+	- SMB 3.0, which Microsoft introduced in Windows Server 2012, includes the following features:
+	- SMB Transparent Failover. This feature enables you to perform the hardware or software maintenance of nodes in a clustered file server without interrupting server applications that are storing data on file shares.
+	- SMB Scale Out. In clustered configurations, you can create file shares that provide simultaneous access to data files, with direct input/output (I/O), through all the nodes in a file server cluster.
+	- SMB Encryption. This feature provides the end-to-end encryption of SMB data on untrusted networks, and it helps to protect data from eavesdropping.
+	- Windows PowerShell commands for managing SMB. You can manage file shares on the file server, end to end, from the command line.
+	- SMB Multichannel. This feature enables you to aggregate network bandwidth and network fault tolerance if multiple paths are available between the SMB 3.x client and server.
+	- SMB Direct. This feature supports network adapters that have the Remote Direct Memory Access (RDMA) capability and can perform at full speed with low latency and by using little central processing unit (CPU) processing time.
+
+- SMB 3.1.1, which Microsoft introduced in Windows Server 2016, offers several additional enhancements, including:
+	- Preauthentication integrity. Preauthentication integrity provides improved protection from a man-in-the-middle attack that might tamper with the establishment and authentication of SMB connection messages.
+	- SMB Encryption improvements. SMB Encryption, introduced with SMB 3.0, uses a fixed cryptographic algorithm, AES-128-CCM. However, AES-128-GCM, available with SMB 3.1.1 performs better with most modern processors.
+	- The removal of the RequireSecureNegotiate setting. Because some third-party implementations of SMB don't perform this negotiation correctly, Microsoft provides a switch to disable Secure Negotiate. However, the default for SMB 3.1.1 servers and clients is to use preauthentication integrity, as described earlier.
+
+- Most common use cases of SMB 3 performance enhacements:
+	- SMB Direct and SMB Multichannel enable you to deploy cost-efficient, continuously available, and high-performance storage for server applications on file servers. Both SMB Multichannel and SMB Direct are enabled by default on Windows Server. You can use multiple network connections simultaneously with SMB Multichannel, which enhances overall file-sharing performance. SMB Direct ensures that multiple network adapters can coordinate the transfer of large amounts of data at line speed while using fewer CPU cycles.
+	- SMB Direct and SMB Multichannel-based file shares provide an alternative to storing files on Internet Small Computer System Interface (iSCSI) or Fibre Channel storage area network (SAN) devices. When creating a VM in Hyper-V on Windows Server, you can specify a network share when choosing the VM location and the virtual hard disk location. You can also attach disks stored on SMB 3.x file shares. By using this approach, you can achieve high availability not by clustering Microsoft Hyper-V nodes, but by using clustered file servers that host VM files on their file shares. This is referred to as a Scale-Out File Server. With this capability, Hyper-V can store all VM files, including configuration files, .vhd files, and checkpoints on highly available SMB file shares.
+	- Cluster Dialect Fencing, available starting with SMB 3.1.1, provides support for cluster upgrades between consecutive operating system versions for the Scale-Out file Servers.
+
 ### CONFIGURE SMB PROTOCOL
 
+- Windows server will negotiate and use the highest SMB version that a client (another server, a Windows 11 device, legacy client, Network-Attached Storage device) supports, which can result in protocol downgrade. Use of SMB1 should be blocked for security reasons as it was known for its vulnerability
+- Enable SMB Encryption from Windows Admin Center
+
 ### DEFINE VOLUME SHADOW COPY SERVICE (VSS)
+
+- Backing of critical business data can be a challenging task, primarily because of its size and high volume of changes. Effectively, some of data files might be open or they might be in an inconsistent state. To remediate this challenge, you can use VSS.
+
+- Windows Server Backup uses VSS to perform backups. VSS coordinates the actions that are necessary to create a consistent shadow copy, also known as a snapshot or a point-in-time copy, of the data that's to be backed up. VSS solutions have the following basic components:
+	- VSS service. This is part of the Windows operating system, which ensures that the other components can communicate with each other properly and work together.
+	- VSS requester. This software requests the actual creation of shadow copies or other high-level operations like importing or deleting them. Typically, this is a backup application, such as Windows Server Backup.
+	- VSS writer. This component guarantees that you have a consistent dataset to back up. This is typically part of a line-of-business application such as Microsoft SQL Server or Microsoft Exchange Server. The Windows operating system includes VSS writers for various Windows components such as the registry.
+	- VSS provider. This component creates and maintains the shadow copies. This can occur in the software or in the hardware. The Windows operating system includes a VSS provider that uses copy-on-write. 
+
+- to take advantage of VSS in combination with SMB file shares, both the SMB client and the SMB server must support SMB 3.0 at a minimum. VSS supports volume sizes of upto 64TB
 
 ## IMPLEMENT STORAGE SPACES AND STORAGE SPACES DIRECT
 
